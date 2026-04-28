@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TimeClock</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/msal-browser/3.10.0/msal-browser.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#12141c;color:#f0f2f8;font-family:'DM Sans',system-ui,sans-serif;min-height:100vh}
+.app{min-height:100vh;display:flex;flex-direction:column}
+
+/* NAV */
+.nav{background:#1a1d2a;border-bottom:1px solid #2e3450;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;flex-shrink:0}
+.nav-logo{width:30px;height:30px;background:#5b8df5;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.nav-logo svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.nav-title{font-size:15px;font-weight:600;color:#f0f2f8;margin-left:10px}
+.nav-right{display:flex;align-items:center;gap:10px}
+.avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.av-admin{background:#2a1a5c;color:#c8b8ff}
+.av-manager{background:#0d1e4a;color:#8cb4ff}
+.av-employee{background:#0d2a1c;color:#3dd68c}
+
+/* SCREENS */
+.screen{display:none;flex:1;background:#12141c}
+.screen.active{display:flex;flex-direction:column}
+
+/* ONEDRIVE BAR */
+.od-bar{display:flex;align-items:center;gap:8px;padding:7px 14px;background:#0d1a38;border-bottom:1px solid #1a3a7a;font-size:12px;color:#8cb4ff;flex-shrink:0}
+.od-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:background 0.3s}
+.od-dot-ok{background:#3dd68c}
+.od-dot-warn{background:#f5b942}
+.od-dot-off{background:#6a738f}
+.od-dot-spin{background:#5b8df5;animation:pulse 1s infinite}
+.od-actions{margin-left:auto;display:flex;gap:6px}
+
+/* LOGIN */
+.login-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;gap:1.25rem}
+.login-card{background:#1a1d2a;border:1px solid #2e3450;border-radius:14px;padding:2rem;width:100%;max-width:300px}
+.login-head{text-align:center;margin-bottom:1.75rem}
+.login-head h1{font-size:22px;font-weight:600;color:#f0f2f8}
+.login-head p{font-size:13px;color:#a8b0cc;margin-top:5px}
+.pin-row{display:flex;gap:12px;justify-content:center;margin-bottom:1.5rem}
+.pin-dot{width:13px;height:13px;border-radius:50%;border:2px solid #3d4460;background:transparent;transition:all 0.12s}
+.pin-dot.filled{background:#5b8df5;border-color:#5b8df5}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.nk{background:#222638;border:1px solid #2e3450;border-radius:9px;padding:16px 0;font-size:22px;font-weight:500;color:#f0f2f8;cursor:pointer;font-family:'DM Sans',system-ui,sans-serif;width:100%;text-align:center;line-height:1;transition:all 0.1s}
+.nk:hover{background:#2a2f45;border-color:#3d4460}
+.nk:active{transform:scale(0.93);background:#2a2f45}
+.nk-sm{font-size:13px;color:#a8b0cc;font-weight:400}
+.login-preview{text-align:center;font-size:14px;font-weight:600;color:#5b8df5;min-height:22px;margin-bottom:6px}
+.login-err{text-align:center;font-size:13px;color:#f06060;min-height:20px;margin-top:10px}
+.demo-box{font-size:12px;color:#a8b0cc;text-align:center;line-height:1.8;background:#1a1d2a;border:1px solid #2e3450;border-radius:9px;padding:10px 14px;max-width:300px;width:100%}
+.demo-box b{color:#f0f2f8}
+
+/* CONTENT */
+.content{flex:1;overflow-y:auto;padding:1.25rem;max-width:700px;margin:0 auto;width:100%}
+.card{background:#1a1d2a;border:1px solid #2e3450;border-radius:14px;padding:1.25rem;margin-bottom:10px}
+
+/* BUTTONS */
+.btn{padding:11px 18px;border-radius:9px;border:none;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:all 0.12s}
+.btn:active{transform:scale(0.97)}
+.btn-success{background:#1c6e42;color:#d4f7e6}.btn-success:hover{background:#155535}
+.btn-danger{background:#7a1c1c;color:#ffd8d8}.btn-danger:hover{background:#621616}
+.btn-amber{background:#7a5010;color:#ffe8c0}.btn-amber:hover{background:#5e3d08}
+.btn-blue{background:#1a3a7a;color:#c0d8ff}.btn-blue:hover{background:#142e62}
+.btn-primary{background:#5b8df5;color:#fff}.btn-primary:hover{background:#4070d8}
+.btn-outline{background:transparent;border:1px solid #3d4460;color:#a8b0cc;font-weight:500}.btn-outline:hover{color:#f0f2f8;background:#222638}
+.btn-teal{background:#0d3a3a;color:#5dd8d8;border:none}.btn-teal:hover{background:#0a2d2d}
+.btn-ms{background:#2a3a6a;color:#c0d8ff;border:none}.btn-ms:hover{background:#1e2e58}
+.btn-full{width:100%}.btn-sm{padding:7px 13px;font-size:12px}.btn-xs{padding:5px 10px;font-size:11px}
+.btn-row{display:flex;gap:8px}.btn-row .btn{flex:1}
+.btn-ghost{background:transparent;border:1px solid #3d4460;color:#a8b0cc;padding:6px 12px;border-radius:9px;font-size:13px;cursor:pointer;font-family:'DM Sans',system-ui,sans-serif;transition:all 0.12s}
+.btn-ghost:hover{color:#f0f2f8;background:#222638}
+
+/* TABS */
+.tabs{display:flex;background:#222638;border-radius:9px;padding:3px;gap:2px;margin-bottom:1rem}
+.tab{flex:1;padding:8px;border-radius:7px;border:none;background:transparent;color:#6a738f;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',system-ui,sans-serif;transition:all 0.12s}
+.tab.active{background:#1a1d2a;color:#f0f2f8;border:1px solid #3d4460}
+
+/* CLOCK HERO */
+.clock-hero{text-align:center;padding:2rem 0 1.25rem}
+.clock-time{font-family:'DM Mono',monospace;font-size:60px;font-weight:500;color:#f0f2f8;letter-spacing:-3px;line-height:1}
+.clock-date{font-size:15px;color:#a8b0cc;margin-top:10px}
+
+/* STATUS BADGE */
+.badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700}
+.badge-out{background:#222638;color:#a8b0cc;border:1px solid #2e3450}
+.badge-in{background:#0d2a1c;color:#3dd68c;border:1px solid #1a5c3a}
+.badge-paid{background:#0d1a38;color:#8cb4ff;border:1px solid #1a3a7a}
+.badge-unpaid{background:#2a1e08;color:#f5b942;border:1px solid #7a5510}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
+
+.slabel{font-size:11px;font-weight:700;color:#6a738f;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px}
+.info-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #2e3450}
+.info-row:last-child{border-bottom:none}
+.ir-l{font-size:13px;color:#a8b0cc}.ir-v{font-size:13px;font-weight:600;color:#f0f2f8}
+
+/* METRICS */
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.metric{background:#222638;border-radius:9px;padding:14px;border:1px solid #2e3450}
+.metric-l{font-size:11px;font-weight:600;color:#6a738f;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px}
+.metric-v{font-size:24px;font-weight:600;color:#f0f2f8;font-family:'DM Mono',monospace;line-height:1}
+.metric-s{font-size:11px;color:#6a738f;margin-top:4px}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:500px}
+th{padding:9px 10px;color:#6a738f;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid #2e3450;text-align:left;white-space:nowrap}
+td{padding:11px 10px;border-bottom:1px solid #2e3450;color:#f0f2f8;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#222638}
+.td-m{color:#a8b0cc}.td-n{font-weight:600;color:#f0f2f8}
+.td-h{font-weight:700;color:#f0f2f8;font-family:'DM Mono',monospace}
+.td-gt{font-weight:700;color:#3dd68c;font-family:'DM Mono',monospace}
+.summary-row td{background:#222638;border-top:2px solid #3d4460}
+
+/* WEEK NAV */
+.week-nav{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.wk-label{flex:1;text-align:center;font-size:14px;font-weight:600;color:#f0f2f8}
+.wk-btn{background:#222638;border:1px solid #2e3450;border-radius:9px;padding:8px 18px;color:#a8b0cc;cursor:pointer;font-size:18px;line-height:1;transition:all 0.12s}
+.wk-btn:hover{border-color:#3d4460;color:#f0f2f8}
+
+/* PILLS */
+.pill{display:inline-flex;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
+.pill-admin{background:#1a0d38;color:#c8b8ff}.pill-manager{background:#0d1a38;color:#8cb4ff}
+.pill-employee{background:#0d2a1c;color:#3dd68c}.pill-paid{background:#0d1a38;color:#8cb4ff}
+.pill-unpaid{background:#2a1e08;color:#f5b942}.pill-working{background:#0d2a1c;color:#3dd68c}
+
+/* FORM */
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;font-weight:600;color:#a8b0cc;margin-bottom:6px}
+input,select{width:100%;padding:10px 13px;background:#222638;border:1px solid #2e3450;border-radius:9px;color:#f0f2f8;font-size:14px;font-family:'DM Sans',system-ui,sans-serif;outline:none;transition:border 0.15s}
+input:focus,select:focus{border-color:#5b8df5}
+input::placeholder{color:#6a738f}
+select option{background:#1a1d2a;color:#f0f2f8}
+
+.session-panel{background:#222638;border-radius:9px;padding:12px;margin-bottom:12px;border:1px solid #2e3450}
+
+/* HISTORY */
+.hist-entry{padding:12px 0;border-bottom:1px solid #2e3450}
+.hist-entry:last-child{border-bottom:none}
+.hist-date{font-size:11px;font-weight:700;color:#6a738f;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px}
+.hist-main{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.hist-times{font-size:14px;color:#f0f2f8}
+.hist-hrs{font-size:15px;font-weight:700;font-family:'DM Mono',monospace;color:#f0f2f8}
+.hist-sub{font-size:12px;color:#6a738f;margin-top:3px}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.open{display:flex}
+.modal{background:#1a1d2a;border:1px solid #3d4460;border-radius:14px;padding:1.5rem;width:100%;max-width:420px;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:16px;font-weight:600;color:#f0f2f8;margin-bottom:4px}
+.modal-sub{font-size:13px;color:#a8b0cc;margin-bottom:1.25rem}
+.modal-actions{display:flex;gap:8px;margin-top:1.25rem}
+.modal-actions .btn{flex:1}
+.modal-err{font-size:12px;color:#f06060;min-height:18px;margin-top:6px}
+
+/* ASSIGN */
+.assign-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.assign-item{display:flex;align-items:center;gap:10px;padding:10px 13px;background:#222638;border-radius:8px;border:1px solid #2e3450;cursor:pointer;transition:border 0.12s}
+.assign-item:hover{border-color:#3d4460}
+.assign-item input[type=checkbox]{width:16px;height:16px;accent-color:#5b8df5;cursor:pointer;flex-shrink:0}
+.assign-item span{font-size:14px;color:#f0f2f8}
+
+/* EXPORT */
+.export-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.export-row .btn{flex:1;min-width:120px}
+
+/* MISC */
+.live-dot{width:8px;height:8px;border-radius:50%;background:#3dd68c;display:inline-block;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
+.empty{text-align:center;padding:2.5rem 1rem;color:#6a738f;font-size:13px}
+.empty b{display:block;color:#a8b0cc;font-size:14px;margin-bottom:5px}
+.no-access{text-align:center;padding:3rem 1rem}
+.no-access b{display:block;font-size:16px;color:#a8b0cc;margin-bottom:6px}
+.no-access span{font-size:13px;color:#6a738f}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:#0d2a1c;border:1px solid #1a5c3a;border-radius:10px;padding:11px 18px;font-size:13px;color:#3dd68c;z-index:400;display:none;align-items:center;gap:8px;max-width:280px;box-shadow:0 4px 20px rgba(0,0,0,0.4)}
+.toast.err{background:#2a0d0d;border-color:#7a1c1c;color:#f06060}
+.toast.show{display:flex}
+
+/* Responsive */
+@media(max-width:480px){
+  .clock-time{font-size:44px}
+  .btn-row{flex-wrap:wrap}
+  .btn-row .btn{min-width:calc(50% - 4px)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ONEDRIVE STATUS BAR -->
+  <div class="od-bar" id="od-bar">
+    <span class="od-dot od-dot-off" id="od-dot"></span>
+    <span id="od-status">OneDrive backup: not connected</span>
+    <div class="od-actions">
+      <button class="btn btn-ms btn-xs" id="od-btn" onclick="odConnect()">Sign in with Microsoft</button>
+      <button class="btn btn-outline btn-xs" id="od-signout-btn" onclick="odSignOut()" style="display:none">Disconnect</button>
+    </div>
+  </div>
+
+  <!-- MAIN NAV (hidden until login) -->
+  <div id="main-nav" style="display:none;background:#1a1d2a;border-bottom:1px solid #2e3450;padding:0 1.25rem;height:56px;align-items:center;justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="nav-logo"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><polyline points="8,5 8,8 10.5,9.5"/></svg></div>
+      <span class="nav-title">TimeClock</span>
+    </div>
+    <div class="nav-right">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="avatar" id="nav-av"></div>
+        <div>
+          <div style="font-size:13px;font-weight:500;color:#f0f2f8" id="nav-name"></div>
+          <div style="font-size:11px;color:#a8b0cc" id="nav-role"></div>
+        </div>
+      </div>
+      <button class="btn-ghost" onclick="logout()">Sign out</button>
+    </div>
+  </div>
+
+  <!-- ── LOGIN SCREEN ── -->
+  <div class="screen active" id="sc-login">
+    <div class="login-wrap">
+      <div class="login-card">
+        <div class="login-head"><h1>TimeClock</h1><p>Enter your 4-digit PIN</p></div>
+        <div class="login-preview" id="lp">&nbsp;</div>
+        <div class="pin-row">
+          <div class="pin-dot" id="pd0"></div><div class="pin-dot" id="pd1"></div>
+          <div class="pin-dot" id="pd2"></div><div class="pin-dot" id="pd3"></div>
+        </div>
+        <div class="numpad">
+          <button class="nk" id="nk1">1</button><button class="nk" id="nk2">2</button><button class="nk" id="nk3">3</button>
+          <button class="nk" id="nk4">4</button><button class="nk" id="nk5">5</button><button class="nk" id="nk6">6</button>
+          <button class="nk" id="nk7">7</button><button class="nk" id="nk8">8</button><button class="nk" id="nk9">9</button>
+          <button class="nk nk-sm" id="nkC">CLR</button><button class="nk" id="nk0">0</button><button class="nk nk-sm" id="nkD">&#9003;</button>
+        </div>
+        <div class="login-err" id="le">&nbsp;</div>
+      </div>
+      <div class="demo-box">
+        <b>Default PINs (change these in Admin &rarr; Users)</b><br>
+        Admin: <b>0000</b> &nbsp;&middot;&nbsp; Manager: <b>1111</b><br>
+        Jordan Lee: <b>2222</b> &nbsp;&middot;&nbsp; Taylor Kim: <b>3333</b>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── EMPLOYEE SCREEN ── -->
+  <div class="screen" id="sc-emp">
+    <div class="content">
+      <div class="clock-hero">
+        <div class="clock-time" id="emp-clk">--:--:--</div>
+        <div class="clock-date" id="emp-dt"></div>
+      </div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div>
+            <div class="slabel" style="margin-bottom:6px">Status</div>
+            <span class="badge badge-out" id="emp-badge"><span class="dot" style="background:#6a738f"></span>Clocked out</span>
+          </div>
+          <div style="text-align:right">
+            <div class="slabel" style="margin-bottom:6px">Today worked</div>
+            <div style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace;color:#f0f2f8" id="emp-today">0h 00m</div>
+          </div>
+        </div>
+        <div id="emp-sess" style="display:none">
+          <div class="session-panel">
+            <div class="info-row"><span class="ir-l">Clocked in at</span><span class="ir-v" id="emp-in-t">—</span></div>
+            <div class="info-row"><span class="ir-l">Paid break total</span><span class="ir-v" id="emp-pb">0m</span></div>
+            <div class="info-row"><span class="ir-l">Unpaid break total</span><span class="ir-v" id="emp-ub">0m</span></div>
+          </div>
+        </div>
+        <div id="emp-out-btns"><button class="btn btn-success btn-full" onclick="empCIn()">Clock in</button></div>
+        <div id="emp-in-btns" style="display:none">
+          <div class="btn-row">
+            <button class="btn btn-blue" id="emp-pb-btn" onclick="empBreak('paid')">Paid break</button>
+            <button class="btn btn-amber" id="emp-ub-btn" onclick="empBreak('unpaid')">Unpaid break</button>
+            <button class="btn btn-danger" onclick="empCOut()">Clock out</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="slabel">Recent entries</div>
+        <div id="emp-hist"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MANAGER SCREEN ── -->
+  <div class="screen" id="sc-mgr">
+    <div class="content">
+      <div class="tabs">
+        <button class="tab active" onclick="mTab('h')">Hours review</button>
+        <button class="tab" onclick="mTab('l')">Live status</button>
+      </div>
+      <div id="mt-h">
+        <div class="week-nav">
+          <button class="wk-btn" onclick="mWk(-1)">&#8249;</button>
+          <div class="wk-label" id="m-wk-lbl"></div>
+          <button class="wk-btn" onclick="mWk(1)">&#8250;</button>
+        </div>
+        <div class="field"><label>Employee</label><select id="m-emp-sel" onchange="renderMgr()"></select></div>
+        <div class="metrics" id="m-metrics"></div>
+        <div class="card">
+          <div class="slabel" style="margin-bottom:12px">Time entries</div>
+          <div class="tbl-wrap" id="m-tbl"></div>
+          <div class="export-row" id="m-export-row">
+            <button class="btn btn-outline btn-sm" onclick="doExport('m','csv')">&#8681; Download CSV</button>
+            <button class="btn btn-teal btn-sm" onclick="doExport('m','email')">&#9993; Email export</button>
+          </div>
+        </div>
+      </div>
+      <div id="mt-l" style="display:none">
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <span class="live-dot"></span>
+            <div class="slabel" style="margin-bottom:0">Clocked in right now</div>
+          </div>
+          <div id="m-live"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ADMIN SCREEN ── -->
+  <div class="screen" id="sc-adm">
+    <div class="content">
+      <div class="tabs">
+        <button class="tab active" onclick="aTab('o')">Overview</button>
+        <button class="tab" onclick="aTab('t')">Timesheets</button>
+        <button class="tab" onclick="aTab('u')">Users</button>
+      </div>
+
+      <!-- Overview tab -->
+      <div id="at-o">
+        <div class="metrics" id="a-ov-m"></div>
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <span class="live-dot"></span>
+            <div class="slabel" style="margin-bottom:0">Live — clocked in now</div>
+          </div>
+          <div id="a-live"></div>
+        </div>
+        <div class="card">
+          <div class="slabel">OneDrive backup</div>
+          <p style="font-size:13px;color:#a8b0cc;margin-bottom:14px;line-height:1.6">
+            The full database is automatically backed up to your OneDrive after every clock-in, clock-out, and break event. Backups are saved to a <strong style="color:#f0f2f8">TimeClock Backups</strong> folder — one rolling current file plus a timestamped history file each time.
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-ms btn-sm" onclick="odBackupNow()">&#9729; Backup now</button>
+            <button class="btn btn-outline btn-sm" onclick="odRestore()">&#8635; Restore from OneDrive</button>
+          </div>
+          <div style="font-size:12px;color:#6a738f;margin-top:10px" id="adm-backup-status"></div>
+        </div>
+      </div>
+
+      <!-- Timesheets tab -->
+      <div id="at-t" style="display:none">
+        <div class="week-nav">
+          <button class="wk-btn" onclick="aWk(-1)">&#8249;</button>
+          <div class="wk-label" id="a-wk-lbl"></div>
+          <button class="wk-btn" onclick="aWk(1)">&#8250;</button>
+        </div>
+        <div class="field"><label>Employee</label><select id="a-emp-sel" onchange="renderAdmTS()"><option value="">All employees</option></select></div>
+        <div class="metrics" id="a-ts-m"></div>
+        <div class="card">
+          <div class="slabel" style="margin-bottom:12px">Entries</div>
+          <div class="tbl-wrap" id="a-tbl"></div>
+          <div class="export-row">
+            <button class="btn btn-outline btn-sm" onclick="doExport('a','csv')">&#8681; Download CSV</button>
+            <button class="btn btn-teal btn-sm" onclick="doExport('a','email')">&#9993; Email export</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Users tab -->
+      <div id="at-u" style="display:none">
+        <div class="card">
+          <div class="slabel">Add user</div>
+          <div class="field"><label>Full name</label><input id="u-name" placeholder="e.g. Alex Johnson"></div>
+          <div class="field"><label>Role</label><select id="u-role"><option value="employee">Employee</option><option value="manager">Manager</option></select></div>
+          <div class="field"><label>4-digit PIN</label><input id="u-pin" type="tel" maxlength="4" placeholder="0000"></div>
+          <button class="btn btn-primary btn-full" onclick="addUser()">Add user</button>
+          <div class="modal-err" id="u-err">&nbsp;</div>
+        </div>
+        <div class="card" style="margin-top:0">
+          <div class="slabel">All users</div>
+          <div id="u-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT ENTRY MODAL -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <h3>Edit entry</h3>
+    <div class="modal-sub" id="edit-sub"></div>
+    <div class="field"><label>Clock in time</label><input type="time" id="e-in"></div>
+    <div class="field"><label>Clock out time</label><input type="time" id="e-out"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="field"><label>Paid break (min)</label><input type="number" id="e-pb" min="0" step="5"></div>
+      <div class="field"><label>Unpaid break (min)</label><input type="number" id="e-ub" min="0" step="5"></div>
+    </div>
+    <div class="modal-err" id="e-err">&nbsp;</div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeEdit()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEdit()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ASSIGN EMPLOYEES MODAL -->
+<div class="modal-overlay" id="assign-modal">
+  <div class="modal">
+    <h3>Assign employees</h3>
+    <div class="modal-sub" id="assign-sub"></div>
+    <div class="assign-list" id="assign-list"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeAssign()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAssign()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- BACKUP TOAST -->
+<div class="toast" id="toast"><span id="toast-msg"></span></div>
+
+<script>
+// ════════════════════════════════════════════
+//  ONEDRIVE / MSAL
+// ════════════════════════════════════════════
+var CLIENT_ID = '97de3ce8-3c0e-437d-ab84-20954ac292be';
+var SCOPES = ['Files.ReadWrite', 'User.Read'];
+var BACKUP_FOLDER = 'TimeClock Backups';
+var BACKUP_FILE = 'timeclock_backup.json';
+var msalApp = null;
+var odAccount = null;
+
+function msalInit() {
+  try {
+    var config = {
+      auth: {
+        clientId: CLIENT_ID,
+        authority: 'https://login.microsoftonline.com/common',
+        redirectUri: window.location.href.split('?')[0].split('#')[0]
+      },
+      cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
+    };
+    msalApp = new msal.PublicClientApplication(config);
+    msalApp.initialize().then(function() {
+      return msalApp.handleRedirectPromise();
+    }).then(function(resp) {
+      if (resp && resp.account) {
+        odAccount = resp.account;
+        odSetConnected(resp.account.name || resp.account.username);
+      } else {
+        var accounts = msalApp.getAllAccounts();
+        if (accounts.length > 0) {
+          odAccount = accounts[0];
+          odSetConnected(odAccount.name || odAccount.username);
+        }
+      }
+    }).catch(function(e) { console.warn('MSAL init:', e); });
+  } catch(e) { console.warn('MSAL unavailable:', e); }
+}
+
+function odConnect() {
+  if (!msalApp) { showToast('Microsoft sign-in not available.', true); return; }
+  msalApp.loginPopup({ scopes: SCOPES }).then(function(resp) {
+    odAccount = resp.account;
+    odSetConnected(odAccount.name || odAccount.username);
+    showToast('Connected to OneDrive!');
+    odBackupNow();
+  }).catch(function(e) {
+    if (e.errorCode === 'popup_window_error' || e.errorCode === 'empty_window_error') {
+      // Fallback to redirect flow
+      msalApp.loginRedirect({ scopes: SCOPES });
+    } else {
+      showToast('Sign-in failed: ' + (e.errorMessage || e.message || 'Please try again.'), true);
+    }
+  });
+}
+
+function odSignOut() {
+  if (!msalApp || !odAccount) return;
+  msalApp.logoutPopup({ account: odAccount }).then(function() {
+    odAccount = null; odSetDisconnected();
+  }).catch(function() { odAccount = null; odSetDisconnected(); });
+}
+
+function odGetToken() {
+  if (!msalApp || !odAccount) return Promise.reject('Not signed in');
+  return msalApp.acquireTokenSilent({ scopes: SCOPES, account: odAccount })
+    .catch(function() { return msalApp.acquireTokenPopup({ scopes: SCOPES, account: odAccount }); })
+    .then(function(r) { return r.accessToken; });
+}
+
+function odSetConnected(name) {
+  document.getElementById('od-dot').className = 'od-dot od-dot-ok';
+  document.getElementById('od-status').textContent = 'OneDrive backup: connected as ' + name;
+  document.getElementById('od-btn').style.display = 'none';
+  document.getElementById('od-signout-btn').style.display = 'inline-flex';
+}
+function odSetDisconnected() {
+  document.getElementById('od-dot').className = 'od-dot od-dot-off';
+  document.getElementById('od-status').textContent = 'OneDrive backup: not connected';
+  document.getElementById('od-btn').style.display = 'inline-flex';
+  document.getElementById('od-signout-btn').style.display = 'none';
+}
+function odSetSyncing() {
+  document.getElementById('od-dot').className = 'od-dot od-dot-spin';
+  document.getElementById('od-status').textContent = 'OneDrive: saving\u2026';
+}
+function odSetError() {
+  document.getElementById('od-dot').className = 'od-dot od-dot-warn';
+  document.getElementById('od-status').textContent = 'OneDrive: backup failed \u2014 will retry';
+}
+
+function odBackupNow() {
+  if (!odAccount) return;
+  odSetSyncing();
+  odGetToken().then(function(token) {
+    var payload = JSON.stringify(db, null, 2);
+    var ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    var stampedFile = 'timeclock_backup_' + ts + '.json';
+    return ensureFolder(token).then(function(folderId) {
+      return Promise.all([
+        uploadFile(token, folderId, BACKUP_FILE, payload),
+        uploadFile(token, folderId, stampedFile, payload)
+      ]);
+    });
+  }).then(function() {
+    var now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    var name = odAccount ? (odAccount.name || odAccount.username) : '';
+    odSetConnected(name);
+    var el = document.getElementById('adm-backup-status');
+    if (el) el.textContent = 'Last backup: ' + now;
+    showToast('\u2713 Backed up to OneDrive at ' + now);
+  }).catch(function(e) {
+    odSetError(); console.warn('Backup error:', e);
+  });
+}
+
+function odRestore() {
+  if (!odAccount) { showToast('Sign in to OneDrive first.', true); return; }
+  if (!confirm('This will replace ALL current data with the OneDrive backup. This cannot be undone. Continue?')) return;
+  odGetToken().then(function(token) {
+    return fetch(
+      'https://graph.microsoft.com/v1.0/me/drive/root:/' +
+      encodeURIComponent(BACKUP_FOLDER) + '/' + encodeURIComponent(BACKUP_FILE) + ':/content',
+      { headers: { 'Authorization': 'Bearer ' + token } }
+    ).then(function(r) {
+      if (!r.ok) throw new Error('Backup file not found in OneDrive.');
+      return r.json();
+    });
+  }).then(function(restored) {
+    db = restored; dbSave();
+    showToast('\u2713 Restored successfully. Reloading\u2026');
+    setTimeout(function() { window.location.reload(); }, 1800);
+  }).catch(function(e) {
+    showToast('Restore failed: ' + (e.message || 'Unknown error'), true);
+  });
+}
+
+function ensureFolder(token) {
+  return fetch('https://graph.microsoft.com/v1.0/me/drive/root:/' + encodeURIComponent(BACKUP_FOLDER), {
+    headers: { 'Authorization': 'Bearer ' + token }
+  }).then(function(r) {
+    if (r.ok) return r.json().then(function(d) { return d.id; });
+    return fetch('https://graph.microsoft.com/v1.0/me/drive/root/children', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: BACKUP_FOLDER, folder: {}, '@microsoft.graph.conflictBehavior': 'rename' })
+    }).then(function(r2) { return r2.json().then(function(d) { return d.id; }); });
+  });
+}
+
+function uploadFile(token, folderId, filename, content) {
+  return fetch(
+    'https://graph.microsoft.com/v1.0/me/drive/items/' + folderId + ':/' + encodeURIComponent(filename) + ':/content',
+    { method: 'PUT', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: content }
+  );
+}
+
+function showToast(msg, isErr) {
+  var t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  clearTimeout(showToast._tid);
+  showToast._tid = setTimeout(function() { t.className = 'toast'; }, 4500);
+}
+
+function autoBackup() { if (odAccount) setTimeout(odBackupNow, 600); }
+
+// ════════════════════════════════════════════
+//  DATABASE
+// ════════════════════════════════════════════
+var DB_KEY = 'tc_v6';
+var db = null;
+
+function dbLoad() { try { var s = localStorage.getItem(DB_KEY); if (s) return JSON.parse(s); } catch(x) {} return null; }
+function dbSave() { try { localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch(x) {} }
+
+function tsFor(ds, h, m) { var d = new Date(ds); d.setHours(h, m, 0, 0); return d.getTime(); }
+
+function buildSample() {
+  var rows = [];
+  var people = [{ id: 'u3', name: 'Jordan Lee' }, { id: 'u4', name: 'Taylor Kim' }];
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var mon = monOf(today);
+  var cfg = {
+    u3: { sh: [7,7,8,7,8], sm: [45,30,0,45,0], wm: [480,470,465,480,455] },
+    u4: { sh: [8,9,8,8,9], sm: [0,0,30,15,0], wm: [450,460,455,470,440] }
+  };
+  for (var wk = 3; wk >= 0; wk--) {
+    var wkMon = new Date(mon); wkMon.setDate(wkMon.getDate() - wk * 7);
+    for (var di = 0; di < 5; di++) {
+      var day = new Date(wkMon); day.setDate(day.getDate() + di);
+      if (day > today) continue;
+      var ds = day.toISOString().slice(0, 10);
+      for (var pi = 0; pi < people.length; pi++) {
+        var p = people[pi];
+        if (Math.random() < 0.06) continue;
+        var c = cfg[p.id];
+        var noise = Math.floor((Math.random() - 0.5) * 16);
+        var ci = tsFor(ds, c.sh[di], c.sm[di]);
+        var co = ci + (c.wm[di] + noise + 30) * 60000;
+        var paid = Math.random() < 0.35 ? 15 : 0;
+        rows.push({ id: 'e' + Math.random().toString(36).slice(2), userId: p.id, userName: p.name, date: ds, clockIn: ci, clockOut: co, paidBreak: paid, unpaidBreak: 30, breakType: null, breakStart: null, status: 'complete' });
+      }
+    }
+  }
+  return rows;
+}
+
+function initDB() {
+  var ex = dbLoad();
+  if (ex && ex.ver === 6) { db = ex; return; }
+  db = {
+    ver: 6,
+    users: [
+      { id: 'u1', name: 'Admin User',  role: 'admin',    pin: '0000', assignedEmployees: [] },
+      { id: 'u2', name: 'Sam Rivera',  role: 'manager',  pin: '1111', assignedEmployees: ['u3', 'u4'] },
+      { id: 'u3', name: 'Jordan Lee',  role: 'employee', pin: '2222', assignedEmployees: [] },
+      { id: 'u4', name: 'Taylor Kim',  role: 'employee', pin: '3333', assignedEmployees: [] }
+    ],
+    entries: buildSample()
+  };
+  dbSave();
+}
+
+// ════════════════════════════════════════════
+//  HELPERS
+// ════════════════════════════════════════════
+function ini(n) { return n.split(' ').map(function(p) { return p[0]; }).join('').slice(0, 2).toUpperCase(); }
+function fmtMs(ms) { var h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000); return h + 'h ' + String(m).padStart(2, '0') + 'm'; }
+function fmtHrs(ms) { return (ms / 3600000).toFixed(2); }
+function fmtT(ts) { return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+function fmtD(ds) { var p = ds.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }); }
+function todayDS() { return new Date().toISOString().slice(0, 10); }
+function workedMs(e) { return Math.max(0, (e.clockOut - e.clockIn) - (e.unpaidBreak || 0) * 60000); }
+function tv(ts) { var d = new Date(ts); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+function monOf(d) { var dt = new Date(d); dt.setHours(0,0,0,0); var day = dt.getDay(); var diff = day === 0 ? -6 : 1 - day; dt.setDate(dt.getDate() + diff); return dt; }
+function wkDates(mon) { var arr = []; for (var i = 0; i < 7; i++) { var d = new Date(mon); d.setDate(d.getDate() + i); arr.push(d.toISOString().slice(0, 10)); } return arr; }
+function wkByOff(off) { var mon = monOf(new Date()); mon.setDate(mon.getDate() + off * 7); return mon; }
+function wkLabel(mon) { var sun = new Date(mon); sun.setDate(sun.getDate() + 6); return mon.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' \u2013 ' + sun.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }); }
+function entriesInWk(mon, uid) { var dates = new Set(wkDates(mon)); return db.entries.filter(function(e) { return e.status === 'complete' && dates.has(e.date) && (!uid || e.userId === uid); }); }
+function getUser(id) { for (var i = 0; i < db.users.length; i++) { if (db.users[i].id === id) return db.users[i]; } return null; }
+function mgrAssignedEmps() { var mgr = getUser(cu.id); if (!mgr || !mgr.assignedEmployees) return []; return db.users.filter(function(u) { return u.role === 'employee' && mgr.assignedEmployees.indexOf(u.id) >= 0; }); }
+function showS(id) { document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); }); document.getElementById(id).classList.add('active'); }
+
+// ════════════════════════════════════════════
+//  APP STATE
+// ════════════════════════════════════════════
+var PIN = '', cu = null, tickId = null, mWkOff = 0, aWkOff = 0, editId = null;
+var eOnBreak = null, eBreakStart = null, eActiveId = null, assigningMgrId = null;
+
+// ════════════════════════════════════════════
+//  PIN / LOGIN
+// ════════════════════════════════════════════
+function setupNumpad() {
+  var keys = ['1','2','3','4','5','6','7','8','9','C','0','D'];
+  var ids  = ['nk1','nk2','nk3','nk4','nk5','nk6','nk7','nk8','nk9','nkC','nk0','nkD'];
+  for (var i = 0; i < ids.length; i++) {
+    (function(k) { var el = document.getElementById(ids[i]); if (el) el.addEventListener('click', function() { pinPress(k); }); })(keys[i]);
+  }
+}
+function pinPress(k) {
+  document.getElementById('le').innerHTML = '&nbsp;';
+  if (k === 'C') PIN = ''; else if (k === 'D') PIN = PIN.slice(0, -1); else if (PIN.length < 4) PIN += k;
+  renderPin();
+  if (PIN.length === 4) doLogin();
+}
+function renderPin() {
+  for (var i = 0; i < 4; i++) document.getElementById('pd' + i).classList.toggle('filled', i < PIN.length);
+  var preview = document.getElementById('lp');
+  if (PIN.length > 0) {
+    var match = null;
+    for (var j = 0; j < db.users.length; j++) { if (db.users[j].pin.slice(0, PIN.length) === PIN) { match = db.users[j]; break; } }
+    preview.textContent = match ? match.name : '';
+  } else { preview.innerHTML = '&nbsp;'; }
+}
+function doLogin() {
+  var entered = PIN; PIN = ''; renderPin();
+  var user = null;
+  for (var i = 0; i < db.users.length; i++) { if (db.users[i].pin === entered) { user = db.users[i]; break; } }
+  if (!user) { document.getElementById('le').textContent = 'Incorrect PIN. Try again.'; return; }
+  cu = user;
+  var av = document.getElementById('nav-av'); av.textContent = ini(cu.name); av.className = 'avatar av-' + cu.role;
+  document.getElementById('nav-name').textContent = cu.name;
+  document.getElementById('nav-role').textContent = cu.role.charAt(0).toUpperCase() + cu.role.slice(1);
+  document.getElementById('main-nav').style.display = 'flex';
+  if (cu.role === 'employee') initEmp(); else if (cu.role === 'manager') initMgr(); else initAdm();
+}
+function logout() {
+  cu = null; PIN = '';
+  if (tickId) { clearInterval(tickId); tickId = null; }
+  eOnBreak = null; eBreakStart = null; eActiveId = null;
+  document.getElementById('main-nav').style.display = 'none';
+  showS('sc-login');
+}
+
+// ════════════════════════════════════════════
+//  EMPLOYEE
+// ════════════════════════════════════════════
+function initEmp() { showS('sc-emp'); checkActive(); renderEmpHist(); if (tickId) clearInterval(tickId); tick(); tickId = setInterval(tick, 1000); }
+function tick() {
+  var n = new Date();
+  document.getElementById('emp-clk').textContent = n.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  document.getElementById('emp-dt').textContent = n.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+  updToday();
+}
+function checkActive() {
+  var td = todayDS(), found = null;
+  for (var i = 0; i < db.entries.length; i++) { if (db.entries[i].userId === cu.id && db.entries[i].status === 'active' && db.entries[i].date === td) { found = db.entries[i]; break; } }
+  if (found) { eActiveId = found.id; eOnBreak = found.breakType || null; eBreakStart = found.breakStart || null; setEmpState('in'); }
+  else { eActiveId = null; eOnBreak = null; setEmpState('out'); }
+}
+function setEmpState(s) {
+  document.getElementById('emp-out-btns').style.display = s === 'out' ? 'block' : 'none';
+  document.getElementById('emp-in-btns').style.display = s === 'in' ? 'flex' : 'none';
+  document.getElementById('emp-sess').style.display = s === 'in' ? 'block' : 'none';
+  var badge = document.getElementById('emp-badge');
+  if (s === 'out') { badge.className = 'badge badge-out'; badge.innerHTML = '<span class="dot" style="background:#6a738f"></span>Clocked out'; }
+  else if (eOnBreak === 'paid') { badge.className = 'badge badge-paid'; badge.innerHTML = '<span class="dot" style="background:#8cb4ff"></span>On paid break'; }
+  else if (eOnBreak === 'unpaid') { badge.className = 'badge badge-unpaid'; badge.innerHTML = '<span class="dot" style="background:#f5b942"></span>On unpaid break'; }
+  else { badge.className = 'badge badge-in'; badge.innerHTML = '<span class="dot" style="background:#3dd68c"></span>Clocked in'; }
+  if (s === 'in') {
+    var ent = null; for (var i = 0; i < db.entries.length; i++) { if (db.entries[i].id === eActiveId) { ent = db.entries[i]; break; } }
+    if (ent) document.getElementById('emp-in-t').textContent = fmtT(ent.clockIn);
+    var pb = document.getElementById('emp-pb-btn'), ub = document.getElementById('emp-ub-btn');
+    pb.textContent = eOnBreak === 'paid' ? 'End paid break' : 'Paid break';
+    ub.textContent = eOnBreak === 'unpaid' ? 'End unpaid break' : 'Unpaid break';
+    pb.disabled = eOnBreak === 'unpaid'; ub.disabled = eOnBreak === 'paid';
+    pb.style.opacity = eOnBreak === 'unpaid' ? '0.4' : '1'; ub.style.opacity = eOnBreak === 'paid' ? '0.4' : '1';
+  }
+}
+function updToday() {
+  var td = todayDS(), tot = 0, pb = 0, ub = 0;
+  for (var i = 0; i < db.entries.length; i++) {
+    var e = db.entries[i]; if (e.userId !== cu.id || e.date !== td) continue;
+    if (e.status === 'complete') { tot += (e.clockOut - e.clockIn); pb += (e.paidBreak || 0) * 60000; ub += (e.unpaidBreak || 0) * 60000; }
+    else if (e.status === 'active') { tot += Date.now() - e.clockIn; pb += (e.paidBreak || 0) * 60000; ub += (e.unpaidBreak || 0) * 60000; if (eOnBreak && eBreakStart) { eOnBreak === 'paid' ? pb += Date.now() - eBreakStart : ub += Date.now() - eBreakStart; } }
+  }
+  document.getElementById('emp-today').textContent = fmtMs(Math.max(0, tot - ub));
+  if (eActiveId) {
+    var ent = null; for (var i = 0; i < db.entries.length; i++) { if (db.entries[i].id === eActiveId) { ent = db.entries[i]; break; } }
+    if (ent) {
+      var cpb = (ent.paidBreak || 0) + (eOnBreak === 'paid' && eBreakStart ? Math.floor((Date.now() - eBreakStart) / 60000) : 0);
+      var cub = (ent.unpaidBreak || 0) + (eOnBreak === 'unpaid' && eBreakStart ? Math.floor((Date.now() - eBreakStart) / 60000) : 0);
+      document.getElementById('emp-pb').textContent = cpb + 'm';
+      document.getElementById('emp-ub').textContent = cub + 'm';
+    }
+  }
+}
+function empCIn() { var e = { id: 'e' + Math.random().toString(36).slice(2), userId: cu.id, userName: cu.name, date: todayDS(), clockIn: Date.now(), clockOut: null, paidBreak: 0, unpaidBreak: 0, breakType: null, breakStart: null, status: 'active' }; db.entries.push(e); eActiveId = e.id; eOnBreak = null; eBreakStart = null; dbSave(); setEmpState('in'); autoBackup(); }
+function empBreak(type) { var ent = null; for (var i = 0; i < db.entries.length; i++) { if (db.entries[i].id === eActiveId) { ent = db.entries[i]; break; } } if (!ent) return; if (!eOnBreak) { eOnBreak = type; eBreakStart = Date.now(); ent.breakType = type; ent.breakStart = eBreakStart; } else { var mins = Math.floor((Date.now() - eBreakStart) / 60000); eOnBreak === 'paid' ? ent.paidBreak = (ent.paidBreak || 0) + mins : ent.unpaidBreak = (ent.unpaidBreak || 0) + mins; eOnBreak = null; eBreakStart = null; ent.breakType = null; ent.breakStart = null; } dbSave(); setEmpState('in'); autoBackup(); }
+function empCOut() { var ent = null; for (var i = 0; i < db.entries.length; i++) { if (db.entries[i].id === eActiveId) { ent = db.entries[i]; break; } } if (!ent) return; if (eOnBreak && eBreakStart) { var mins = Math.floor((Date.now() - eBreakStart) / 60000); eOnBreak === 'paid' ? ent.paidBreak = (ent.paidBreak || 0) + mins : ent.unpaidBreak = (ent.unpaidBreak || 0) + mins; } ent.clockOut = Date.now(); ent.status = 'complete'; ent.breakType = null; ent.breakStart = null; eActiveId = null; eOnBreak = null; eBreakStart = null; dbSave(); setEmpState('out'); renderEmpHist(); autoBackup(); }
+function renderEmpHist() { var el = document.getElementById('emp-hist'); var rows = db.entries.filter(function(e) { return e.userId === cu.id && e.status === 'complete'; }).sort(function(a, b) { return b.clockIn - a.clockIn; }).slice(0, 7); if (!rows.length) { el.innerHTML = '<div class="empty"><b>No entries yet</b>Clock in to get started</div>'; return; } el.innerHTML = rows.map(function(e) { return '<div class="hist-entry"><div class="hist-date">' + fmtD(e.date) + '</div><div class="hist-main"><span class="hist-times">' + fmtT(e.clockIn) + ' \u2013 ' + fmtT(e.clockOut) + '</span><span class="hist-hrs">' + fmtMs(workedMs(e)) + '</span></div><div class="hist-sub">Paid break: ' + (e.paidBreak || 0) + 'm &nbsp;&middot;&nbsp; Unpaid break: ' + (e.unpaidBreak || 0) + 'm</div></div>'; }).join(''); }
+
+// ════════════════════════════════════════════
+//  MANAGER
+// ════════════════════════════════════════════
+function initMgr() { showS('sc-mgr'); var emps = mgrAssignedEmps(); var sel = document.getElementById('m-emp-sel'); if (emps.length === 0) { sel.innerHTML = '<option value="">No employees assigned</option>'; } else if (emps.length === 1) { sel.innerHTML = emps.map(function(u) { return '<option value="' + u.id + '">' + u.name + '</option>'; }).join(''); } else { sel.innerHTML = '<option value="">All assigned employees</option>' + emps.map(function(u) { return '<option value="' + u.id + '">' + u.name + '</option>'; }).join(''); } updMWkLbl(); renderMgr(); renderLive('m-live'); }
+function mTab(t) { document.getElementById('mt-h').style.display = t === 'h' ? 'block' : 'none'; document.getElementById('mt-l').style.display = t === 'l' ? 'block' : 'none'; document.querySelectorAll('#sc-mgr .tab').forEach(function(el, i) { el.classList.toggle('active', ['h', 'l'][i] === t); }); if (t === 'l') renderLive('m-live'); }
+function updMWkLbl() { document.getElementById('m-wk-lbl').textContent = wkLabel(wkByOff(mWkOff)); }
+function mWk(d) { mWkOff = Math.min(0, mWkOff + d); updMWkLbl(); renderMgr(); }
+function renderMgr() { var emps = mgrAssignedEmps(); if (emps.length === 0) { document.getElementById('m-metrics').innerHTML = ''; document.getElementById('m-tbl').innerHTML = '<div class="no-access"><b>No employees assigned</b><span>Ask your admin to assign employees to your account.</span></div>'; document.getElementById('m-export-row').style.display = 'none'; return; } document.getElementById('m-export-row').style.display = 'flex'; var mon = wkByOff(mWkOff); var uid = document.getElementById('m-emp-sel').value; var assignedIds = emps.map(function(u) { return u.id; }); var es = entriesInWk(mon, uid || null).filter(function(e) { return assignedIds.indexOf(e.userId) >= 0; }); renderMetrics('m-metrics', es); renderTable('m-tbl', es, true); }
+
+// ════════════════════════════════════════════
+//  ADMIN
+// ════════════════════════════════════════════
+function initAdm() { showS('sc-adm'); var sel = document.getElementById('a-emp-sel'); sel.innerHTML = '<option value="">All employees</option>'; db.users.filter(function(u) { return u.role === 'employee'; }).forEach(function(u) { sel.innerHTML += '<option value="' + u.id + '">' + u.name + '</option>'; }); renderOv(); updAWkLbl(); renderAdmTS(); renderUserList(); }
+function aTab(t) { ['o', 't', 'u'].forEach(function(x) { document.getElementById('at-' + x).style.display = x === t ? 'block' : 'none'; }); document.querySelectorAll('#sc-adm .tab').forEach(function(el, i) { el.classList.toggle('active', ['o', 't', 'u'][i] === t); }); }
+function renderOv() { var mon = wkByOff(0); var es = entriesInWk(mon, null); var totMs = es.reduce(function(s, e) { return s + workedMs(e); }, 0); var active = db.entries.filter(function(e) { return e.status === 'active'; }); document.getElementById('a-ov-m').innerHTML = '<div class="metric"><div class="metric-l">Employees</div><div class="metric-v">' + db.users.filter(function(u) { return u.role === 'employee'; }).length + '</div><div class="metric-s">active workers</div></div><div class="metric"><div class="metric-l">This week</div><div class="metric-v">' + fmtMs(totMs) + '</div><div class="metric-s">hours worked</div></div><div class="metric"><div class="metric-l">In right now</div><div class="metric-v">' + active.length + '</div><div class="metric-s">clocked in</div></div><div class="metric"><div class="metric-l">Total users</div><div class="metric-v">' + db.users.length + '</div><div class="metric-s">all roles</div></div>'; renderLive('a-live'); }
+function updAWkLbl() { document.getElementById('a-wk-lbl').textContent = wkLabel(wkByOff(aWkOff)); }
+function aWk(d) { aWkOff = Math.min(0, aWkOff + d); updAWkLbl(); renderAdmTS(); }
+function renderAdmTS() { var mon = wkByOff(aWkOff); var uid = document.getElementById('a-emp-sel').value; var es = entriesInWk(mon, uid || null); renderMetrics('a-ts-m', es); renderTable('a-tbl', es, true); }
+function addUser() { var name = document.getElementById('u-name').value.trim(); var role = document.getElementById('u-role').value; var pin = document.getElementById('u-pin').value.trim(); var err = document.getElementById('u-err'); if (!name) { err.textContent = 'Name is required.'; return; } if (!/^\d{4}$/.test(pin)) { err.textContent = 'PIN must be exactly 4 digits.'; return; } if (db.users.filter(function(u) { return u.pin === pin; }).length) { err.textContent = 'PIN already in use.'; return; } err.innerHTML = '&nbsp;'; db.users.push({ id: 'u' + Math.random().toString(36).slice(2), name: name, role: role, pin: pin, assignedEmployees: [] }); dbSave(); renderUserList(); var sel = document.getElementById('a-emp-sel'); sel.innerHTML = '<option value="">All employees</option>'; db.users.filter(function(u) { return u.role === 'employee'; }).forEach(function(u) { sel.innerHTML += '<option value="' + u.id + '">' + u.name + '</option>'; }); document.getElementById('u-name').value = ''; document.getElementById('u-pin').value = ''; }
+function removeUser(uid) { if (confirm('Remove this user?')) { db.users = db.users.filter(function(u) { return u.id !== uid; }); db.users.forEach(function(u) { if (u.assignedEmployees) u.assignedEmployees = u.assignedEmployees.filter(function(id) { return id !== uid; }); }); dbSave(); renderUserList(); } }
+function renderUserList() { var el = document.getElementById('u-list'); el.innerHTML = '<table><thead><tr><th>Name</th><th>Role</th><th>PIN</th><th>Assigned to</th><th></th></tr></thead><tbody>' + db.users.map(function(u) { var assignCell = ''; if (u.role === 'manager') { var ae = u.assignedEmployees || []; var names = ae.map(function(id) { var emp = getUser(id); return emp ? emp.name : ''; }).filter(Boolean); var label = names.length ? names.join(', ') : '<span style="color:#6a738f;font-style:italic">None assigned</span>'; assignCell = '<td style="font-size:12px;color:#a8b0cc;max-width:140px">' + label + '<br><button class="btn btn-outline btn-xs" style="margin-top:5px" onclick="openAssign(\'' + u.id + '\')">Assign</button></td>'; } else { assignCell = '<td></td>'; } return '<tr><td class="td-n">' + u.name + '</td><td><span class="pill pill-' + u.role + '">' + u.role + '</span></td><td style="font-family:\'DM Mono\',monospace;font-size:12px;color:#a8b0cc">' + (u.role === 'admin' ? '••••' : u.pin) + '</td>' + assignCell + '<td>' + (u.role !== 'admin' ? '<button class="btn btn-outline btn-xs" onclick="removeUser(\'' + u.id + '\')">Remove</button>' : '') + '</td></tr>'; }).join('') + '</tbody></table>'; }
+
+// ════════════════════════════════════════════
+//  ASSIGN MODAL
+// ════════════════════════════════════════════
+function openAssign(mgrId) { assigningMgrId = mgrId; var mgr = getUser(mgrId); document.getElementById('assign-sub').textContent = 'Manager: ' + mgr.name; var ae = mgr.assignedEmployees || []; var emps = db.users.filter(function(u) { return u.role === 'employee'; }); var list = document.getElementById('assign-list'); if (!emps.length) { list.innerHTML = '<div class="empty"><b>No employees yet</b>Add employees first.</div>'; } else { list.innerHTML = emps.map(function(u) { var checked = ae.indexOf(u.id) >= 0 ? 'checked' : ''; return '<label class="assign-item"><input type="checkbox" value="' + u.id + '" ' + checked + '><span>' + u.name + '</span></label>'; }).join(''); } document.getElementById('assign-modal').classList.add('open'); }
+function closeAssign() { document.getElementById('assign-modal').classList.remove('open'); assigningMgrId = null; }
+function saveAssign() { var mgr = getUser(assigningMgrId); if (!mgr) return; var checked = []; document.querySelectorAll('#assign-list input[type=checkbox]').forEach(function(cb) { if (cb.checked) checked.push(cb.value); }); mgr.assignedEmployees = checked; dbSave(); closeAssign(); renderUserList(); }
+
+// ════════════════════════════════════════════
+//  SHARED RENDER
+// ════════════════════════════════════════════
+function renderLive(elId) { var el = document.getElementById(elId); var active = db.entries.filter(function(e) { return e.status === 'active'; }); if (!active.length) { el.innerHTML = '<div class="empty"><b>All clear</b>Nobody is currently clocked in</div>'; return; } el.innerHTML = '<table><thead><tr><th>Employee</th><th>Clocked in</th><th>Status</th></tr></thead><tbody>' + active.map(function(e) { var bt = e.breakType === 'paid' ? '<span class="pill pill-paid">Paid break</span>' : e.breakType === 'unpaid' ? '<span class="pill pill-unpaid">Unpaid break</span>' : '<span class="pill pill-working">Working</span>'; return '<tr><td class="td-n">' + e.userName + '</td><td class="td-m">' + fmtT(e.clockIn) + '</td><td>' + bt + '</td></tr>'; }).join('') + '</tbody></table>'; }
+function renderMetrics(id, es) { var totMs = es.reduce(function(s, e) { return s + workedMs(e); }, 0); var days = new Set(es.map(function(e) { return e.date; })).size; var pb = es.reduce(function(s, e) { return s + (e.paidBreak || 0); }, 0); var ub = es.reduce(function(s, e) { return s + (e.unpaidBreak || 0); }, 0); var avg = days > 0 ? Math.floor(totMs / days) : 0; document.getElementById(id).innerHTML = '<div class="metric"><div class="metric-l">Hours worked</div><div class="metric-v">' + fmtMs(totMs) + '</div><div class="metric-s">unpaid breaks excluded</div></div><div class="metric"><div class="metric-l">Days</div><div class="metric-v">' + days + '</div><div class="metric-s">avg ' + fmtMs(avg) + '/day</div></div><div class="metric"><div class="metric-l">Paid break</div><div class="metric-v">' + pb + 'm</div><div class="metric-s">included in hours</div></div><div class="metric"><div class="metric-l">Unpaid break</div><div class="metric-v">' + ub + 'm</div><div class="metric-s">deducted from hours</div></div>'; }
+function renderTable(id, es, editable) { var el = document.getElementById(id); if (!es.length) { el.innerHTML = '<div class="empty"><b>No entries this week</b>Use the arrows to navigate to another week</div>'; return; } var sorted = es.slice().sort(function(a, b) { return a.clockIn - b.clockIn; }); var totWk = sorted.reduce(function(s, e) { return s + workedMs(e); }, 0); var eTh = editable ? '<th></th>' : ''; var rows = sorted.map(function(e) { var eBtn = editable ? '<td><button class="btn btn-outline btn-xs" onclick="openEdit(\'' + e.id + '\')">Edit</button></td>' : ''; return '<tr><td class="td-n">' + e.userName + '</td><td class="td-m">' + fmtD(e.date) + '</td><td class="td-m">' + fmtT(e.clockIn) + '</td><td class="td-m">' + fmtT(e.clockOut) + '</td><td><span class="pill pill-paid">' + (e.paidBreak || 0) + 'm</span></td><td><span class="pill pill-unpaid">' + (e.unpaidBreak || 0) + 'm</span></td><td class="td-h">' + fmtMs(workedMs(e)) + '</td>' + eBtn + '</tr>'; }).join(''); var sumEd = editable ? '<td></td>' : ''; rows += '<tr class="summary-row"><td colspan="6" style="text-align:right;color:#6a738f;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">Week total</td><td class="td-gt">' + fmtMs(totWk) + '</td>' + sumEd + '</tr>'; el.innerHTML = '<table><thead><tr><th>Employee</th><th>Date</th><th>In</th><th>Out</th><th>Paid brk</th><th>Unpaid brk</th><th>Worked</th>' + eTh + '</tr></thead><tbody>' + rows + '</tbody></table>'; }
+
+// ════════════════════════════════════════════
+//  EDIT MODAL
+// ════════════════════════════════════════════
+function openEdit(id) { editId = id; var ent = null; for (var i = 0; i < db.entries.length; i++) { if (db.entries[i].id === id) { ent = db.entries[i]; break; } } if (!ent) return; document.getElementById('edit-sub').textContent = ent.userName + ' \u00b7 ' + fmtD(ent.date); document.getElementById('e-in').value = tv(ent.clockIn); document.getElementById('e-out').value = tv(ent.clockOut); document.getElementById('e-pb').value = ent.paidBreak || 0; document.getElementById('e-ub').value = ent.unpaidBreak || 0; document.getElementById('e-err').innerHTML = '&nbsp;'; document.getElementById('edit-modal').classList.add('open'); }
+function closeEdit() { document.getElementById('edit-modal').classList.remove('open'); editId = null; }
+function saveEdit() { var ent = null; for (var i = 0; i < db.entries.length; i++) { if (db.entries[i].id === editId) { ent = db.entries[i]; break; } } if (!ent) return; var iv = document.getElementById('e-in').value, ov = document.getElementById('e-out').value; var pb = Math.max(0, parseInt(document.getElementById('e-pb').value) || 0); var ub = Math.max(0, parseInt(document.getElementById('e-ub').value) || 0); if (!iv || !ov) { document.getElementById('e-err').textContent = 'Both times required.'; return; } var ih = +iv.split(':')[0], im = +iv.split(':')[1], oh = +ov.split(':')[0], om = +ov.split(':')[1]; var base = new Date(ent.clockIn); var ni = new Date(base); ni.setHours(ih, im, 0, 0); var no = new Date(base); no.setHours(oh, om, 0, 0); if (no <= ni) { document.getElementById('e-err').textContent = 'Clock out must be after clock in.'; return; } ent.clockIn = ni.getTime(); ent.clockOut = no.getTime(); ent.paidBreak = pb; ent.unpaidBreak = ub; dbSave(); closeEdit(); autoBackup(); if (cu.role === 'manager') renderMgr(); else { renderAdmTS(); renderOv(); } }
+
+// ════════════════════════════════════════════
+//  EXPORT
+// ════════════════════════════════════════════
+function buildExportData(src) { var mon, uid, empName = 'All_Employees'; if (src === 'm') { mon = wkByOff(mWkOff); uid = document.getElementById('m-emp-sel').value; } else { mon = wkByOff(aWkOff); uid = document.getElementById('a-emp-sel').value; } if (uid) { var u = getUser(uid); if (u) empName = u.name; } var assignedIds = null; if (src === 'm') { assignedIds = mgrAssignedEmps().map(function(u) { return u.id; }); } var es = entriesInWk(mon, uid || null); if (assignedIds) es = es.filter(function(e) { return assignedIds.indexOf(e.userId) >= 0; }); var sun = new Date(mon); sun.setDate(sun.getDate() + 6); var period = mon.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' - ' + sun.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }); return { es: es, mon: mon, empName: empName, period: period }; }
+function doExport(src, mode) { var data = buildExportData(src); var es = data.es, period = data.period, empName = data.empName, mon = data.mon; if (!es.length) { alert('No entries to export for this week.'); return; } var rows = [['Pay Period: ' + period], [], ['Employee', 'Date', 'Clock In', 'Clock Out', 'Paid Break (min)', 'Unpaid Break (min)', 'Hours Worked']]; es.slice().sort(function(a, b) { return a.clockIn - b.clockIn; }).forEach(function(e) { rows.push([e.userName, fmtD(e.date), fmtT(e.clockIn), fmtT(e.clockOut), e.paidBreak || 0, e.unpaidBreak || 0, fmtHrs(workedMs(e)) + ' hrs']); }); var tot = es.reduce(function(s, e) { return s + workedMs(e); }, 0); rows.push([]); rows.push(['', '', '', '', '', 'Total hours:', fmtHrs(tot) + ' hrs']); var csv = rows.map(function(r) { return r.map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(','); }).join('\r\n'); if (mode === 'csv') { var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); var url = URL.createObjectURL(blob); var a = document.createElement('a'); a.href = url; a.download = 'TimeClock_' + empName.replace(/\s+/g, '_') + '_' + mon.toISOString().slice(0, 10) + '.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); } else { var subject = 'Timesheet: ' + empName + ' \u2013 ' + period; var body = 'Timesheet for: ' + empName + '\nPay Period: ' + period + '\n\n'; body += 'Employee | Date | In | Out | Paid Break | Unpaid Break | Worked\n'; body += '---------|------|----|----|-----------|-------------|-------\n'; es.slice().sort(function(a, b) { return a.clockIn - b.clockIn; }).forEach(function(e) { body += e.userName + ' | ' + fmtD(e.date) + ' | ' + fmtT(e.clockIn) + ' | ' + fmtT(e.clockOut) + ' | ' + (e.paidBreak || 0) + 'm | ' + (e.unpaidBreak || 0) + 'm | ' + fmtMs(workedMs(e)) + '\n'; }); body += '\nTotal hours worked: ' + fmtHrs(tot) + ' hrs'; window.open('mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body), '_blank'); } }
+
+// ════════════════════════════════════════════
+//  MODAL CLOSE ON OVERLAY CLICK
+// ════════════════════════════════════════════
+document.getElementById('edit-modal').addEventListener('click', function(ev) { if (ev.target === this) closeEdit(); });
+document.getElementById('assign-modal').addEventListener('click', function(ev) { if (ev.target === this) closeAssign(); });
+
+// ════════════════════════════════════════════
+//  BOOT
+// ════════════════════════════════════════════
+initDB();
+setupNumpad();
+msalInit();
+</script>
+</body>
+</html>
